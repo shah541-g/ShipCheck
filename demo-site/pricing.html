@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Pricing - Acme Rockets</title>
+  <meta name="description" content="Simple pricing for Acme Rockets kits: starter, club and school packs with free launch guides included.">
+  <link rel="canonical" href="https://staging.acme-rockets.example/pricing">
+  <style>body { font-family: system-ui, sans-serif; max-width: 760px; margin: 40px auto; padding: 0 16px; line-height: 1.6; }</style>
+</head>
+<body>
+  <h1>Pricing</h1>
+  <ul>
+    <li>Starter kit - $29</li>
+    <li>Club pack - $149</li>
+    <li>School pack - $399</li>
+  </ul>
+  <!-- The broken journey: this is a BUTTON (not a link) that uses JavaScript to open a page that does not exist.
+       A normal link checker cannot see it; only the AI explorer, by clicking it, finds the 404. -->
+  <button id="trial" type="button">Start free trial</button>
+  <p><a href="/">Home</a></p>
+  <script>
+    document.getElementById('trial').addEventListener('click', function () {
+      window.location.href = '/signup.html'; // /signup.html does not exist -> 404
+    });
+    applyDiscount(); // Demo bug: this function does not exist -> a JavaScript error on load.
+  </script>
+</body>
+</html>

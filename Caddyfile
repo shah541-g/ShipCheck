@@ -1,0 +1,8 @@
+{$APP_HOST} {
+	respond "ShipCheck is being built. Come back soon." 200
+}
+
+{$DEMO_HOST} {
+	root * /srv/demo-site
+	file_server
+}

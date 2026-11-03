@@ -1,0 +1,24 @@
+{
+  "name": "shipcheck-api",
+  "version": "1.0.0",
+  "description": "",
+  "scripts": {
+    "test": "node --test",
+    "dev": "node --env-file=.env.development --watch src/server.js",
+    "start": "node src/server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "private": true,
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1161.0",
+    "cors": "^2.8.6",
+    "express": "^5.3.0",
+    "express-rate-limit": "^8.7.3",
+    "openai": "^7.47.0",
+    "tldts": "^7.4.19",
+    "zod": "^4.6.7"
+  }
+}

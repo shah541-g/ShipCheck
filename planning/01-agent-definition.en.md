@@ -7,7 +7,16 @@
 > Event: **Vultr: Agent Rush Hackathon** (lablab.ai), **Challenge 1: "Blast Radius Zero"**.
 > The name "ShipCheck" is a working name. If the team renames it, rename it in all 6 documents.
 >
-> **Version 2 (30 Oct 2026):** the AI now **drives the browser**. It clicks, types, logs in and follows user journeys, where version 1 only let it choose pages. Documents 2 and 3 still describe version 1 and will be updated to match this document.
+> **Version 2 (30 Oct 2026):** the AI now **drives the browser**. It clicks, types, logs in and follows user journeys, where version 1 only let it choose pages. Document 2 (architecture) is updated to v2; Document 3 (build steps) is being updated.
+>
+> **Build scope — Core v2 vs Stretch (decided for the 4-day build):** this document describes the full product. To fit a 4-day build by a small team, the **Core** is built first and the **Stretch** items are added only if the team is ahead (buffer day).
+>
+> | | Features |
+> |---|---|
+> | **Core (build days 1-4)** | The AI explorer loop (observe → decide → guard → act) with `goto`, `click`, `type`, `done`; the action guard (L2, incl. danger-words); 3-5 journeys and the `journey.failed` finding; all deterministic checks + score + report; the 6 safety layers (proxy, sandbox, gVisor); the demo site with the broken-button journey, the injection text and the network block; the Agent view, containment panel and report with journeys. **Safe mode only** (no write requests). |
+> | **Stretch (only if ahead)** | Test login + auditing pages behind login + password hygiene + the `login` action (F6); form submission + staging mode (F7); journey **replay** in Prove-It (in Core, a `failed` journey is "Measured once"); the automated **hijack drill** (F12) (in Core, the demo audit's natural block moments carry the containment story); the `select` action; the visual check (F10). |
+>
+> Features below are tagged **(stretch)** where they are not in the Core. Document 3's main phases build the Core; its "Stretch (only if ahead)" section builds the rest.
 
 ---
 

@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>ShipCheck architecture</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { width: 1400px; height: 1080px; background: #fff; position: relative;
+         font-family: "Segoe UI", system-ui, -apple-system, sans-serif; color: #0f172a; }
+  .b { position: absolute; border-radius: 10px; padding: 10px 12px; }
+  .t { font-weight: 700; font-size: 15px; line-height: 1.25; }
+  .s { font-size: 11.5px; line-height: 1.35; color: #475569; margin-top: 3px; }
+  .node { background: #fff; border: 2px solid #334155; }
+  .zone { background: #f8fafc; border: 2px solid #94a3b8; }
+  .zone-label { position: absolute; font-size: 12.5px; font-weight: 700; color: #475569; }
+  .sandboxzone { background: #fff7ed; border: 2px dashed #ea580c; }
+  .sandbox { background: #ffedd5; border: 2px solid #ea580c; }
+  .proxy { background: #ecfdf5; border: 2px solid #059669; }
+  .vultr { background: #eff6ff; border: 2px solid #2563eb; }
+  .loop { background: #faf5ff; border: 2px solid #7c3aed; }
+  .chip { position: absolute; background: #fff; border: 2px solid #7c3aed; border-radius: 999px;
+          font-size: 13px; font-weight: 700; color: #5b21b6; padding: 7px 0; text-align: center; }
+  .cap { position: absolute; font-size: 11.5px; color: #334155; line-height: 1.35; }
+  .capb { font-weight: 700; }
+  /* the arrow layer sits above the boxes; every path is routed through a gap,
+     so no arrow can hide behind a box and none crosses a box it does not touch */
+  svg { position: absolute; inset: 0; width: 1400px; height: 1080px; pointer-events: none; z-index: 5; }
+  .layer { position: absolute; border-radius: 8px; border: 1.5px solid #cbd5e1; background: #fff; padding: 7px 9px; }
+  .layer b { font-size: 12px; display: block; color: #0f172a; }
+  .layer span { font-size: 10.5px; color: #475569; line-height: 1.3; display: block; margin-top: 2px; }
+</style>
+</head>
+<body>
+
+<svg viewBox="0 0 1400 1080">
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#334155"/>
+    </marker>
+    <marker id="ag" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#059669"/>
+    </marker>
+    <marker id="ap" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#7c3aed"/>
+    </marker>
+    <marker id="ab" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#2563eb"/>
+    </marker>
+  </defs>
+
+  <g stroke="#334155" stroke-width="3" fill="none" marker-end="url(#a)">
+    <path d="M 700 66 L 700 100"/>                      <!-- internet -> VM -->
+    <path d="M 272 196 L 318 180"/>                     <!-- caddy -> web -->
+    <path d="M 272 228 L 318 262"/>                     <!-- caddy -> api -->
+    <path d="M 178 290 L 178 314"/>                     <!-- caddy -> demo-site -->
+    <path d="M 360 326 L 360 462"/>                     <!-- api -> sandbox, via docker -->
+    <path d="M 760 502 C 800 430, 660 380, 556 334"/>   <!-- proxy -> api, blocked events -->
+  </g>
+
+  <g stroke="#059669" stroke-width="3" fill="none" marker-end="url(#ag)">
+    <path d="M 534 578 L 614 578"/>                     <!-- sandbox -> proxy -->
+    <path d="M 880 578 L 1150 578"/>                    <!-- proxy -> the internet -->
+  </g>
+
+  <g stroke="#7c3aed" stroke-width="3" fill="none" marker-end="url(#ap)">
+    <path d="M 740 213 L 800 213"/>
+    <path d="M 920 213 L 980 213"/>
+    <path d="M 1100 213 L 1160 213"/>
+    <path d="M 1221 274 L 690 274"/>                    <!-- repeat -->
+    <path d="M 700 302 C 678 370, 648 420, 616 458"/>   <!-- loop -> sandbox -->
+  </g>
+
+  <!-- the AI and storage calls leave from the api only, so they are routed
+       down the free corridor on the left, never through the sandbox zone -->
+  <g stroke="#2563eb" stroke-width="3" fill="none">
+    <path d="M 330 328 C 300 400, 70 400, 70 820"/>
+  </g>
+  <g stroke="#2563eb" stroke-width="3" fill="none" marker-end="url(#ab)">
+    <path d="M 70 820 L 300 820 L 300 830"/>
+    <path d="M 300 820 L 690 820 L 690 830"/>
+  </g>
+</svg>
+
+<!-- ───────────────────────────── top ───────────────────────────── -->
+<div class="b node" style="left:560px; top:18px; width:280px; height:48px; text-align:center;">
+  <div class="t">Internet — users &amp; judges</div>
+</div>
+<div class="cap" style="left:712px; top:72px;">HTTPS 443 / HTTP 80</div>
+
+<!-- ───────────────────────────── the VM ───────────────────────────── -->
+<div class="b zone" style="left:40px; top:100px; width:1360px; height:690px;"></div>
+<div class="zone-label" style="left:58px; top:112px;">
+  Vultr Cloud Compute VM · Ubuntu 24.04 · firewall: 22 (our IP only), 80, 443
+</div>
+
+<div class="b node" style="left:88px; top:168px; width:182px; height:120px;">
+  <div class="t">caddy</div>
+  <div class="s">HTTPS, ports 80 + 443<br>the only published ports</div>
+</div>
+<div class="b node" style="left:88px; top:316px; width:182px; height:60px;">
+  <div class="t">demo-site</div>
+  <div class="s">static files, served by caddy</div>
+</div>
+<div class="cap" style="left:196px; top:293px;">demo.&lt;IP&gt;</div>
+
+<div class="b node" style="left:322px; top:152px; width:216px; height:66px;">
+  <div class="t">web</div>
+  <div class="s">Next.js UI · port 3000</div>
+</div>
+<div class="b node" style="left:322px; top:234px; width:216px; height:92px;">
+  <div class="t">api</div>
+  <div class="s">Node 24 + Express 5 · port 4000<br>runs the pipeline &amp; the guards</div>
+</div>
+<div class="cap" style="left:282px; top:158px;">/*</div>
+<div class="cap" style="left:278px; top:272px;">/api/*</div>
+
+<!-- the explorer loop -->
+<div class="b loop" style="left:600px; top:148px; width:740px; height:150px;"></div>
+<div class="zone-label" style="left:618px; top:160px; color:#5b21b6;">
+  The explorer loop — the AI drives the browser, one action at a time
+</div>
+<div class="chip" style="left:626px; top:196px; width:114px;">observe</div>
+<div class="chip" style="left:806px; top:196px; width:114px;">decide</div>
+<div class="chip" style="left:986px; top:196px; width:114px;">guard</div>
+<div class="chip" style="left:1166px; top:196px; width:114px;">act</div>
+<div class="cap" style="left:636px; top:240px; color:#5b21b6;">page snapshot</div>
+<div class="cap" style="left:806px; top:240px; color:#5b21b6;">AI picks ONE action</div>
+<div class="cap" style="left:986px; top:240px; color:#5b21b6;">L2 allows or blocks</div>
+<div class="cap" style="left:1166px; top:240px; color:#5b21b6;">sandbox performs it</div>
+<div class="cap capb" style="left:852px; top:280px; color:#5b21b6;">repeat until “done”, or the step budget ends it</div>
+
+<div class="cap capb" style="left:392px; top:398px; width:196px;">
+  docker CLI — one NEW<br>container per stage:<br>discover, explore, verify
+</div>
+<div class="cap capb" style="left:946px; top:340px; width:240px; color:#5b21b6;">
+  one command at a time,<br>newline JSON over stdin/stdout
+</div>
+<div class="cap capb" style="left:946px; top:404px; width:240px;">
+  every block reported back:<br>POST /internal/events
+</div>
+
+<!-- ───────────────────────────── the sandbox network ───────────────────────────── -->
+<div class="b sandboxzone" style="left:140px; top:466px; width:980px; height:290px;"></div>
+<div class="zone-label" style="left:160px; top:478px; color:#c2410c;">
+  docker network “shipcheck-sandbox” — internal: NO route to the internet
+</div>
+
+<div class="b sandbox" style="left:200px; top:510px; width:330px; height:210px;">
+  <div class="t">shipcheck-sandbox container</div>
+  <div class="s">
+    Playwright + Chromium<br>
+    our <b>runner</b> = a command server the api drives<br><br>
+    gVisor (runsc) · 1 CPU · 1 GB · 1024 pids<br>
+    read-only root · tmpfs /tmp · cap-drop ALL<br>
+    <b>zero secrets</b> · destroyed after the stage
+  </div>
+</div>
+
+<div class="b proxy" style="left:620px; top:506px; width:256px; height:156px;">
+  <div class="t">egress-proxy</div>
+  <div class="s">
+    172.30.0.10:3128<br>
+    per-job allowlist<br>
+    private &amp; metadata IP guard<br>
+    counts and reports every block
+  </div>
+</div>
+<div class="cap" style="left:548px; top:556px; color:#059669;">:3128</div>
+<div class="cap capb" style="left:1170px; top:544px; width:215px; color:#047857;">
+  Internet — only the site<br>under test and common<br>CDNs, ports 80/443,<br>never a private or<br>metadata IP
+</div>
+
+<!-- ───────────────────────────── vultr services ───────────────────────────── -->
+<div class="b vultr" style="left:150px; top:834px; width:310px; height:76px;">
+  <div class="t">Vultr Serverless Inference</div>
+  <div class="s">api.vultrinference.com/v1 — every AI call</div>
+</div>
+<div class="b vultr" style="left:540px; top:834px; width:310px; height:76px;">
+  <div class="t">Vultr Object Storage</div>
+  <div class="s">screenshots, public-read</div>
+</div>
+<div class="cap capb" style="left:884px; top:856px; width:270px; color:#1d4ed8;">
+  HTTPS, from the api only —<br>never from the sandbox
+</div>
+
+<!-- ───────────────────────────── the six layers ───────────────────────────── -->
+<div class="zone-label" style="left:40px; top:934px;">The six safety layers</div>
+<div class="layer" style="left:40px; top:958px; width:218px; height:84px;">
+  <b>L1 Input guard</b><span>No localhost, private or raw IPs, odd ports or credentials in the URL.</span>
+</div>
+<div class="layer" style="left:270px; top:958px; width:218px; height:84px;">
+  <b>L2 Action guard</b><span>6 fixed action types; the element must exist, stay on site, and never be Delete/Pay/Buy.</span>
+</div>
+<div class="layer" style="left:500px; top:958px; width:218px; height:84px;">
+  <b>L3 Browser guard</b><span>No off-site navigation; in safe mode no write requests; no service workers.</span>
+</div>
+<div class="layer" style="left:730px; top:958px; width:218px; height:84px;">
+  <b>L4 Network guard</b><span>No direct internet. The egress proxy allows only the site and common CDNs.</span>
+</div>
+<div class="layer" style="left:960px; top:958px; width:218px; height:84px;">
+  <b>L5 Secret guard</b><span>Zero secrets inside the sandbox. The AI key never enters it.</span>
+</div>
+<div class="layer" style="left:1190px; top:958px; width:210px; height:84px;">
+  <b>L6 Resource guard</b><span>Fresh container per stage, destroyed after; CPU, RAM, pid and time limits.</span>
+</div>
+
+</body>
+</html>

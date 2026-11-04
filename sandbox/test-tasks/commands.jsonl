@@ -1,0 +1,5 @@
+{"init":true,"kind":"explore","jobId":"test","mode":"safe","proxy":null,"scope":{"hosts":["example.com","www.example.com"]},"limits":{"pageTimeoutMs":20000,"actionTimeoutMs":15000,"maxLinksPerPage":30,"maxCandidates":50},"deadline":9999999999999}
+{"id":1,"cmd":"discover","startUrl":"https://example.com/"}
+{"id":2,"cmd":"audit","url":"https://example.com/"}
+{"id":3,"cmd":"snapshot"}
+{"id":4,"cmd":"close"}

@@ -1,0 +1,26 @@
+# Local development only: the egress proxy and the internal sandbox network.
+# api and web run directly on Windows.
+name: shipcheck-dev
+
+services:
+  egress-proxy:
+    build: ./apps/egress-proxy
+    environment:
+      INTERNAL_TOKEN: ${INTERNAL_TOKEN}
+      API_INTERNAL_URL: http://host.docker.internal:4000
+    ports:
+      - "127.0.0.1:8080:8080"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      default: {}
+      sandbox:
+        ipv4_address: 172.30.0.10
+
+networks:
+  sandbox:
+    name: shipcheck-sandbox
+    internal: true
+    ipam:
+      config:
+        - subnet: 172.30.0.0/24

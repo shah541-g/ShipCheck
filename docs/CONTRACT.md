@@ -259,7 +259,7 @@ Events drive the whole live page. `seq` starts at **1** per job and increases by
 3. **Typeable** — target must have `typeable: true`.
 4. **Length** — `type` text ≤ 200 characters.
 5. **Scope** — a `goto` URL must be on the same site, `http`/`https`, default port.
-6. **Danger words** — a `click` whose element name contains any of: `delete, remove, pay, buy, checkout, order, purchase, subscribe, unsubscribe, transfer, log out, sign out, cancel subscription, confirm payment`. Blocked **in every mode**.
+6. **Danger words** — a `click` whose element name contains any of: `delete, remove, pay, buy, checkout, order, purchase, subscribe, unsubscribe, transfer, log out, logout, sign out, signout, cancel subscription, confirm payment`. Blocked **in every mode**.
 7. **login allowed** — only when a test login exists and has not been used **(stretch)**.
 
 The guard re-derives everything from the snapshot. It never trusts what the AI says about an element.

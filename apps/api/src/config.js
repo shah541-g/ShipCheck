@@ -8,19 +8,33 @@ const num = (name, fallback) => {
   return n;
 };
 
+// Vultr Serverless Inference is the hackathon's required AI service, so it is the default.
+// Another OpenAI-compatible endpoint can be selected for local work with LLM_PROVIDER or LLM_BASE_URL.
+export const LLM_BASE_URLS = Object.freeze({
+  vultr: 'https://api.vultrinference.com/v1',
+  gemini: 'https://generativelanguage.googleapis.com/v1beta/openai/',
+});
+
+export function resolveLlmConfig(env = process.env) {
+  const provider = String(env.LLM_PROVIDER || 'vultr').trim().toLowerCase();
+  const timeout = Number(env.LLM_TIMEOUT_MS);
+  return Object.freeze({
+    provider,
+    baseURL: String(env.LLM_BASE_URL || LLM_BASE_URLS[provider] || '').trim(),
+    apiKey: env.LLM_API_KEY || '',
+    model: env.LLM_MODEL || '',
+    visionModel: env.LLM_VISION_MODEL || '',
+    jsonMode: String(env.LLM_JSON_MODE ?? 'true').trim().toLowerCase() === 'true',
+    timeoutMs: Number.isFinite(timeout) && timeout > 0 ? timeout : 60000,
+  });
+}
+
 export const config = Object.freeze({
   port: num('PORT', 4000),
   appHost: str('APP_HOST').toLowerCase(),
   demoHost: str('DEMO_HOST').toLowerCase(),
   corsOrigin: str('CORS_ORIGIN'),
-  llm: Object.freeze({
-    baseURL: str('LLM_BASE_URL', 'https://api.vultrinference.com/v1'),
-    apiKey: str('LLM_API_KEY'),
-    model: str('LLM_MODEL'),
-    visionModel: str('LLM_VISION_MODEL'),
-    jsonMode: str('LLM_JSON_MODE', 'true') === 'true',
-    timeoutMs: num('LLM_TIMEOUT_MS', 60000),
-  }),
+  llm: resolveLlmConfig(),
   internalToken: str('INTERNAL_TOKEN'),
   proxyAdminUrl: str('PROXY_ADMIN_URL', 'http://egress-proxy:8080'),
   sandbox: Object.freeze({
@@ -28,6 +42,14 @@ export const config = Object.freeze({
     image: str('SANDBOX_IMAGE', 'shipcheck-sandbox:latest'),
     network: str('SANDBOX_NETWORK', 'shipcheck-sandbox'),
     runtime: str('SANDBOX_RUNTIME', 'runc'),
+    // L6 resource limits. They are deliberately not environment-tunable: the containment
+    // claim in the README is only true for these values.
+    memory: '1g',
+    memorySwap: '1g',
+    cpus: '1',
+    pidsLimit: 1024,
+    tmpfs: '512m',
+    shmSize: '512m',
   }),
   limits: Object.freeze({
     maxPages: num('MAX_PAGES', 12),
@@ -61,5 +83,6 @@ export function assertConfig() {
   if (config.storage.driver === 's3' && !(config.storage.s3Hostname && config.storage.s3Bucket && config.storage.s3AccessKey && config.storage.s3SecretKey)) {
     throw new Error('STORAGE_DRIVER=s3 needs S3_HOSTNAME, S3_BUCKET, S3_ACCESS_KEY and S3_SECRET_KEY');
   }
+  if (!config.llm.baseURL) throw new Error('LLM_PROVIDER is not a known provider: set LLM_BASE_URL, or use LLM_PROVIDER=vultr');
   if (!config.llm.apiKey || !config.llm.model) console.warn('AI is not configured: journeys are skipped and reports use built-in guidance.');
 }

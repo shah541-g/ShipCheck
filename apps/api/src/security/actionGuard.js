@@ -1,14 +1,17 @@
 import { z } from 'zod';
 import { isInScope } from './policy.js';
 
-// The 6 fixed action types. Anything else fails the schema and is blocked.
+// The 6 fixed action types of docs/CONTRACT.md. Anything else fails the schema and is blocked.
+// goto/click/type/done are Core; select and login are Stretch, so the Core explorer never
+// proposes them, but the shape stays here so the guard is the single list of what is allowed.
+// .strict() matters: an extra key (a smuggled selector, a script) fails the schema.
 export const ActionSchema = z.discriminatedUnion('action', [
-  z.object({ action: z.literal('goto'), url: z.string(), reason: z.string().default('') }),
-  z.object({ action: z.literal('click'), n: z.number().int(), reason: z.string().default('') }),
-  z.object({ action: z.literal('type'), n: z.number().int(), text: z.string(), reason: z.string().default('') }),
-  z.object({ action: z.literal('select'), n: z.number().int(), value: z.string(), reason: z.string().default('') }),
-  z.object({ action: z.literal('login'), reason: z.string().default('') }),
-  z.object({ action: z.literal('done'), status: z.enum(['passed', 'failed']), reason: z.string().default('') }),
+  z.object({ action: z.literal('goto'), url: z.string(), reason: z.string().default('') }).strict(),
+  z.object({ action: z.literal('click'), n: z.number().int(), reason: z.string().default('') }).strict(),
+  z.object({ action: z.literal('type'), n: z.number().int(), text: z.string(), reason: z.string().default('') }).strict(),
+  z.object({ action: z.literal('select'), n: z.number().int(), value: z.string(), reason: z.string().default('') }).strict(),
+  z.object({ action: z.literal('login'), reason: z.string().default('') }).strict(),
+  z.object({ action: z.literal('done'), status: z.enum(['passed', 'failed']), reason: z.string().default('') }).strict(),
 ]);
 
 // Clicks whose visible name matches any of these are blocked in EVERY mode (safe or staging).
@@ -16,11 +19,11 @@ const DANGER_WORDS = ['delete', 'remove', 'pay', 'buy', 'checkout', 'order', 'pu
   'subscribe', 'unsubscribe', 'transfer', 'log out', 'logout', 'sign out', 'signout',
   'cancel subscription', 'confirm payment'];
 
-const elementByN = (snapshot, n) => (snapshot.elements ?? []).find((e) => e.n === n) ?? null;
+const elementByN = (snapshot, n) => (snapshot?.elements ?? []).find((e) => e.n === n) ?? null;
 
 // L2 action guard. Pure function: decides from the proposed action + the current snapshot only.
 // ctx = { scopeHosts, mode, hasLogin, loginUsed }. Returns { ok:true, action } or { ok:false, reason }.
-export function checkAction(raw, snapshot, ctx) {
+export function checkAction(raw, snapshot, ctx = {}) {
   const parsed = ActionSchema.safeParse(raw);
   if (!parsed.success) return { ok: false, reason: 'The action did not match the allowed shape' };
   const a = parsed.data;
@@ -28,7 +31,7 @@ export function checkAction(raw, snapshot, ctx) {
   if (a.action === 'done') return { ok: true, action: a };
 
   if (a.action === 'goto') {
-    if (!isInScope(a.url, ctx.scopeHosts)) return { ok: false, reason: 'Navigation outside the site under test' };
+    if (!isInScope(a.url, ctx.scopeHosts ?? [])) return { ok: false, reason: 'Navigation outside the site under test' };
     return { ok: true, action: a };
   }
 

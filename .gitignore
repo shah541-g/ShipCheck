@@ -7,3 +7,9 @@ data/
 *.log
 .DS_Store
 result*.json
+
+# Local npm cache
+apps/api/.npm-cache/
+
+# Local npm cache
+apps/api/.npm-cache/

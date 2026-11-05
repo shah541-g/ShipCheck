@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { config } from '../config.js';
 import { llmJson } from '../llm/json.js';
 import { SUMMARY_SYSTEM } from '../llm/prompts.js';
+import { scopeHosts } from '../security/policy.js';
 import { putScreenshot } from '../storage/index.js';
 import { addFinding } from './findings.js';
 import { buildFailSoftReportFields } from './failSoft.js';
@@ -10,12 +11,37 @@ import { scoreFindings, countBySeverity } from './scoring.js';
 const SummarySchema = z.object({ summary: z.string().min(1), topActions: z.array(z.string()).min(1) });
 const SEVERITY_ORDER = ['critical', 'high', 'medium', 'low', 'info'];
 
+const hostOf = (value) => { try { return new URL(String(value)).hostname.toLowerCase(); } catch { return null; } };
+
+// Which outside services the site tried to contact, and how often. Two layers see this and
+// they see different attempts: the browser write-guard (L3) aborts an off-site request
+// before it reaches the network, so the egress proxy (L4) only counts what got that far.
+// Reading the proxy alone reported no third parties at all for a normal site. The larger of
+// the two counts per host is used, so the number is never overstated.
+function thirdPartiesContacted(job, blockCounts) {
+  const own = new Set(scopeHosts(job.target.host));
+  const fromProxy = new Map(Object.entries(blockCounts ?? {}).map(([host, count]) => [String(host).toLowerCase(), count]));
+  const fromBrowser = new Map();
+  for (const ev of job.events) {
+    if (ev.type !== 'blocked') continue;
+    if (ev.data?.layer !== 'browser' && ev.data?.layer !== 'network') continue;
+    const host = hostOf(ev.data.target);
+    if (!host || own.has(host)) continue;
+    fromBrowser.set(host, (fromBrowser.get(host) ?? 0) + 1);
+  }
+  const hosts = [...new Set([...fromProxy.keys(), ...fromBrowser.keys()])].filter((h) => !own.has(h));
+  return hosts
+    .map((host) => ({ host, count: Math.max(fromProxy.get(host) ?? 0, fromBrowser.get(host) ?? 0) }))
+    .filter((h) => h.count > 0)
+    .sort((a, b) => b.count - a.count || a.host.localeCompare(b.host));
+}
+
 // `deps` exists so the report can be built in a test without an AI provider or a bucket.
 export async function buildReport(job, {
   discover, pages, journeys, findings, observations, blockCounts,
   secretsInSandbox, containersUsed, writeRequestsBlocked, sandboxRuntime,
 }, { emit = () => {}, upload: uploadFile = putScreenshot, summarize } = {}) {
-  const thirdPartyHosts = Object.entries(blockCounts ?? {}).map(([host, count]) => ({ host, count })).sort((a, b) => b.count - a.count);
+  const thirdPartyHosts = thirdPartiesContacted(job, blockCounts);
   if (thirdPartyHosts.length) addFinding(findings, 'privacy.third_party_hosts', job.target.url, { hosts: thirdPartyHosts });
   for (const o of observations ?? []) {
     addFinding(findings, 'ai.observation', o.page, { title: o.title }, { title: `AI observation: ${o.title}`, why: o.detail, aiWritten: true });
@@ -51,7 +77,10 @@ export async function buildReport(job, {
 
   const blocksByLayer = { input: 0, ai: 0, browser: 0, network: 0, resource: 0 };
   for (const ev of job.events) if (ev.type === 'blocked' && ev.data && ev.data.layer in blocksByLayer) blocksByLayer[ev.data.layer] += 1;
-  blocksByLayer.network = Math.max(blocksByLayer.network, thirdPartyHosts.reduce((s, h) => s + h.count, 0));
+  // Only the proxy's own counts belong to the network layer; the browser-layer blocks are
+  // already counted above and must not be added here a second time.
+  const proxyBlocked = Object.values(blockCounts ?? {}).reduce((s, n) => s + (Number(n) || 0), 0);
+  blocksByLayer.network = Math.max(blocksByLayer.network, proxyBlocked);
 
   let summary; let topActions; let summaryFromAi = false;
   try {

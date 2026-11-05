@@ -4,7 +4,9 @@ ShipCheck is a website auditor being built for the Vultr Agent Rush hackathon. I
 
 ## Project status
 
-This checkout holds the AI and safety building blocks, the API-side sandbox driver, the Playwright command runner, the egress proxy, the job store/queue/event bus and the web app. It is **not yet a complete, end-to-end auditor**: the job pipeline that joins those parts, the rules/findings/scoring and verification builders, the report with its storage, and the API routes are still being written, so an audit cannot be started yet. Driver protocol tests do not by themselves prove real Chromium or gVisor containment — the containment check script is the proof for that, and it has not been run on the production VM yet.
+ShipCheck runs end to end: a POST to `/api/jobs` discovers the site in a fresh sandbox, plans, explores, measures, re-checks its own findings in a second clean sandbox and produces a report with a score, evidence and downloads. Real audits have been run locally — the record is in [docs/kan-17-first-local-run.md](docs/kan-17-first-local-run.md), including what is still unproven.
+
+Two parts are deliberately not finished yet: the AI half of a run has only been exercised against a provider smoke test rather than inside a full audit, and the six containment layers have not been proven together on the production VM, which is what `apps/api/scripts/containment-check.js` is for. Driver protocol tests do not by themselves prove real Chromium or gVisor containment.
 
 Implemented AI building blocks:
 
@@ -51,7 +53,7 @@ This is the intended Core topology from Document 2. The six-layer table above di
 
 ![ShipCheck architecture: Caddy, web, API, sandbox, egress proxy, Vultr Inference and Object Storage](docs/architecture.png)
 
-The diagram describes the target design. The runner, the API driver, the proxy and the web app exist; the pipeline that joins them and the report storage are still being written.
+Every box in the diagram exists in this checkout. What has not been exercised yet is the production deployment of it: the VM, gVisor as the sandbox runtime and Object Storage for screenshots.
 
 ## AI providers
 
@@ -67,7 +69,7 @@ Use a Vultr inference key with a model your account can see. The smoke test list
 |---|---|---|
 | Cloud Compute | Host the web app, API, egress proxy, and isolated browser containers. | Deployment target in the architecture; no complete deployment is configured here. |
 | Serverless Inference | Planning, action selection, analysis, and summaries through the OpenAI-compatible client. | Both environment examples select Vultr with `glm-5.3`; model listing and the live smoke checks passed against a Vultr key. |
-| Object Storage | Store screenshots and report artifacts. | Environment placeholders exist; storage integration is not implemented in this checkout. |
+| Object Storage | Store screenshots and report artifacts. | Implemented behind one `putScreenshot`; `STORAGE_DRIVER=s3` selects it and `local` writes to disk for development. Only the local driver has been run so far. |
 | Firewall | Restrict inbound access to administration and public web ports. | Required by the deployment design; production firewall settings are not verified in this checkout. |
 
 The intended deployment also uses a Vultr Firewall to restrict inbound access to administration and the public web ports. Safe mode does not submit forms. A human approval step is not needed for Core because there is no final write action to approve.

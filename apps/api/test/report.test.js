@@ -11,7 +11,7 @@ const makeJob = () => ({
   mode: 'safe',
   target: { url: 'https://demo.example/', host: 'demo.example', domain: 'demo.example' },
   events: [
-    { type: 'blocked', data: { layer: 'browser', reason: 'Write request blocked in safe mode (POST)' } },
+    { type: 'blocked', data: { layer: 'browser', target: 'https://demo.example/api/subscribe', reason: 'Write request blocked in safe mode (POST)' } },
     { type: 'blocked', data: { layer: 'ai', reason: 'Dangerous action blocked: "Delete account"' } },
     { type: 'progress', message: 'ignored' },
   ],
@@ -90,6 +90,38 @@ test('the report scores, sorts, uploads and keeps no base64 behind', async () =>
   assert.equal(report.summary, 'Two serious problems stop new visitors from signing up.');
   assert.equal(report.topActions.length, 3);
   assert.equal(report.ai.available, true);
+});
+
+test('third parties blocked by the browser layer are reported, not only the proxy ones', async () => {
+  const job = makeJob();
+  job.events.push(
+    ...Array.from({ length: 5 }, () => ({ type: 'blocked', data: { layer: 'browser', target: 'https://fonts.googleapis.com/css2?family=Inter', reason: 'Request outside the site under test' } })),
+    { type: 'blocked', data: { layer: 'browser', target: 'https://cdn.tracker.example/t.js', reason: 'Request outside the site under test' } },
+    { type: 'blocked', data: { layer: 'network', target: 'https://cdn.tracker.example/p.gif', reason: 'Request outside the site under test' } },
+    { type: 'blocked', data: { layer: 'browser', target: 'not a url', reason: 'Non-HTTP browser request blocked' } },
+    { type: 'blocked', data: { layer: 'ai', target: 'https://ignored.example/', reason: 'Navigation outside the site under test' } },
+  );
+  const report = await buildReport(job, makeInput(), { upload: async () => null, summarize });
+
+  assert.deepEqual(report.thirdPartyHosts, [
+    { host: 'cdn.tracker.example', count: 7 },      // the proxy saw 7, the browser 2: the larger wins
+    { host: 'fonts.googleapis.com', count: 5 },
+    { host: 'fonts.other.example', count: 2 },
+  ]);
+  // The site's own blocked write request and an AI-layer block are not third parties.
+  assert.equal(report.thirdPartyHosts.some((h) => h.host === 'demo.example'), false);
+  assert.equal(report.thirdPartyHosts.some((h) => h.host === 'ignored.example'), false);
+  // Browser blocks stay in the browser layer; the network layer still shows only the proxy's.
+  assert.equal(report.containment.blocksByLayer.network, 9);
+  assert.equal(report.containment.blocksByLayer.browser, 8);
+  assert.equal(report.findings.find((f) => f.checkId === 'privacy.third_party_hosts').evidence.hosts.length, 3);
+});
+
+test('a site that contacted nobody outside itself gets no third-party finding', async () => {
+  const report = await buildReport(makeJob(), { ...makeInput(), blockCounts: {} }, { upload: async () => null, summarize });
+  assert.deepEqual(report.thirdPartyHosts, []);
+  assert.equal(report.findings.some((f) => f.checkId === 'privacy.third_party_hosts'), false);
+  assert.equal(report.containment.blocksByLayer.network, 0);
 });
 
 test('a screenshot that cannot be stored leaves a warning and a null URL', async () => {

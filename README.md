@@ -9,7 +9,7 @@ This checkout holds the AI and safety building blocks, the API-side sandbox driv
 Implemented AI building blocks:
 
 - URL input policy and a strict Core browser-action guard.
-- Provider-configurable OpenAI-compatible LLM client, JSON parsing/validation, and one retry for invalid JSON. The current local Vultr setup was live-tested with `glm-5.3`; Gemini remains selectable.
+- An OpenAI-compatible LLM client against Vultr Serverless Inference, with JSON parsing/validation and one corrective retry for invalid JSON. Live-tested with `glm-5.3`.
 - Planner that selects only discovered page URLs, limits output, and falls back to simple page selection if AI is unavailable.
 - Explorer loop that observes, asks for one action, validates it before use, records blocked actions, and enforces action and repetition limits.
 - Analysis that adds AI explanations only to existing measured findings and keeps built-in guidance when AI fails.
@@ -55,18 +55,18 @@ The diagram describes the target design. The runner, the API driver, the proxy a
 
 ## AI providers
 
-The API uses one OpenAI-compatible client for planning, exploration, and analysis. Vultr Serverless Inference is the current local and deployment provider; Gemini remains selectable for development. Provider, API key, base URL, and model come from `LLM_PROVIDER`, `LLM_API_KEY`, `LLM_BASE_URL`, and `LLM_MODEL`. The root deployment example selects Vultr. The current local Vultr settings were live-tested with `glm-5.3`.
+The API uses one OpenAI-compatible client for planning, exploration, and analysis. Vultr Serverless Inference is the provider, locally as well as in deployment, so that what is demonstrated runs on the path that was tested. Provider, API key, base URL, and model come from `LLM_PROVIDER`, `LLM_API_KEY`, `LLM_BASE_URL`, and `LLM_MODEL`; both environment examples select Vultr with `glm-5.3`, and the settings and the reasoning are recorded in [docs/kan-21-ai-model.md](docs/kan-21-ai-model.md).
 
-Gemini can be selected with `LLM_PROVIDER=gemini` and Google's OpenAI-compatible endpoint. The existing JSON schema validation and one-retry behavior remain in ShipCheck regardless of provider.
+Another OpenAI-compatible endpoint can be selected locally with `LLM_PROVIDER` and `LLM_BASE_URL` for debugging without spending inference credits. The JSON schema validation and the one corrective retry stay in place whichever endpoint is used.
 
-For Vultr, set `LLM_PROVIDER=vultr`, `LLM_BASE_URL=https://api.vultrinference.com/v1`, and use a Vultr inference key with a model available to the account. Use the live smoke test to list available models, select one, and verify both JSON modes plus a valid Core action. Never put a provider key in source code or logs.
+Use a Vultr inference key with a model your account can see. The smoke test lists the available models, checks that the configured ID is one of them, and verifies both JSON modes plus a valid Core action. Never put a provider key in source code or logs.
 
 ## Vultr services in the architecture
 
 | Vultr service | Intended use | Current implementation state |
 |---|---|---|
 | Cloud Compute | Host the web app, API, egress proxy, and isolated browser containers. | Deployment target in the architecture; no complete deployment is configured here. |
-| Serverless Inference | Planning, action selection, analysis, and summaries through the OpenAI-compatible client. | The ignored local configuration selects Vultr with `glm-5.3`; model listing and live smoke checks passed. |
+| Serverless Inference | Planning, action selection, analysis, and summaries through the OpenAI-compatible client. | Both environment examples select Vultr with `glm-5.3`; model listing and the live smoke checks passed against a Vultr key. |
 | Object Storage | Store screenshots and report artifacts. | Environment placeholders exist; storage integration is not implemented in this checkout. |
 | Firewall | Restrict inbound access to administration and public web ports. | Required by the deployment design; production firewall settings are not verified in this checkout. |
 
@@ -87,13 +87,13 @@ Run the unit tests (these use mocked model responses and need no API key):
 npm test
 ```
 
-To run the live Vultr model smoke test, copy `apps/api/.env.development.example` to `apps/api/.env.development`, set `LLM_PROVIDER=vultr` and `LLM_BASE_URL=https://api.vultrinference.com/v1`, then enter the Vultr key locally. Keep the key in that ignored file; do not commit it or paste it into chat. Start with `LLM_MODEL` blank, list the models available to your account, choose one, and rerun the smoke test:
+To run the live Vultr model smoke test, copy `apps/api/.env.development.example` to `apps/api/.env.development` and enter your own Vultr inference key. Keep the key in that ignored file; do not commit it or paste it into chat. The provider, base URL and model are already filled in, so the smoke test can be run as it is:
 
 ```powershell
 node --env-file=.env.development scripts/llm-smoke.js
 ```
 
-The smoke test checks model listing, JSON output with `LLM_JSON_MODE=true` and `false`, and a valid Core browser action. It must pass with the actual provider key and model before claiming live inference works. No credential is stored in this repository. Gemini is also supported with `LLM_PROVIDER=gemini`, Google's OpenAI-compatible base URL, and a Gemini key.
+The smoke test checks model listing, that `LLM_MODEL` is one of the models your account can see, JSON output with `LLM_JSON_MODE=true` and `false`, and a valid Core browser action. It must pass with the actual provider key and model before claiming live inference works. No credential is stored in this repository. Pass a model ID as an argument to try a candidate without editing the env file, and see [docs/kan-21-ai-model.md](docs/kan-21-ai-model.md) if `glm-5.3` is not on your key.
 
 ## Project documents
 

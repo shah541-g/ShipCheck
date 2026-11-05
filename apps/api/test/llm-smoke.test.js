@@ -50,6 +50,17 @@ test('provider error messages redact the configured API key', async () => {
   assert.equal(logs.join('\n').includes(apiKey), false);
 });
 
+test('names the problem when LLM_MODEL is not in the account model list', async () => {
+  const logs = [];
+  const client = {
+    models: { list: async () => ({ data: [{ id: 'glm-5.3' }, { id: 'deepseek-v4.1-flash' }] }) },
+    chat: { completions: { create: async () => ({ choices: [{ message: { content: '{}' } }] }) } }
+  };
+  const result = await runSmoke({ client, model: 'gone-5.0', log: (...args) => logs.push(args.join(' ')) });
+  assert.ok(result.errors.some((error) => /not in this account's model list/.test(error)));
+  assert.match(logs.join('\n'), /glm-5\.3, deepseek-v4\.1-flash/);
+});
+
 test('smoke test does not suggest choosing a model when listing failed', async () => {
   const logs = [];
   const client = { models: { list: async () => { throw new Error('provider unavailable'); } } };

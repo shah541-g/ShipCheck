@@ -48,6 +48,13 @@ export async function runSmoke({ client, model, jsonMode = true, apiKey = config
       : 'No model is selected because the provider returned no model list. Fix provider access, then rerun this script.');
     return result;
   }
+  // A model ID that the account cannot see is the usual reason a committed setting stops
+  // working, and the chat error for it is unhelpful. Say so plainly before the calls run.
+  if (result.models.length && !result.models.includes(model)) {
+    const message = `LLM_MODEL "${model}" is not in this account's model list. Pick one of: ${result.models.join(', ')}`;
+    result.errors.push(message);
+    log(message);
+  }
 
   const ask = async (useJsonMode, system, user) => {
     const response = await client.chat.completions.create({
@@ -90,10 +97,13 @@ export async function runSmoke({ client, model, jsonMode = true, apiKey = config
 
 async function main() {
   if (!config.llm.apiKey) { console.error('LLM_API_KEY is missing. Add your provider key to apps/api/.env.development; do not paste it into chat.'); process.exitCode = 1; return; }
+  // One argument tries a different model without editing the env file, which is how you
+  // compare candidates before committing one to LLM_MODEL.
+  const model = process.argv[2] || config.llm.model;
   const { default: OpenAI } = await import('openai');
   const client = new OpenAI({ baseURL: config.llm.baseURL, apiKey: config.llm.apiKey, timeout: config.llm.timeoutMs, maxRetries: 1 });
-  console.log(`Provider: ${config.llm.provider}; endpoint: ${config.llm.baseURL}`);
-  const result = await runSmoke({ client, model: config.llm.model, jsonMode: config.llm.jsonMode, log: (...args) => console.log(...args) });
+  console.log(`Provider: ${config.llm.provider}; endpoint: ${config.llm.baseURL}; model: ${model || '(none set)'}`);
+  const result = await runSmoke({ client, model, jsonMode: config.llm.jsonMode, log: (...args) => console.log(...args) });
   if (result.errors.length) process.exitCode = 1;
 }
 

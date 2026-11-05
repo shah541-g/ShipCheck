@@ -30,6 +30,13 @@ function normalizeLink(href, base) {
     return u.toString();
   } catch { return null; }
 }
+function isDefaultHttpUrl(url) {
+  try {
+    const parsed = new URL(url);
+    return ['http:', 'https:'].includes(parsed.protocol)
+      && !parsed.username && !parsed.password && !parsed.port;
+  } catch { return false; }
+}
 function countSecretLikeEnv() {
   return Object.keys(process.env).filter((k) => /KEY|TOKEN|SECRET|PASSWORD/i.test(k)).length;
 }
@@ -51,9 +58,14 @@ async function guardContext(context) {
     const req = route.request();
     const url = req.url();
     const method = req.method();
-    // Off-site requests of any kind are blocked (the proxy would block them too; this is clearer + faster).
-    if (!/^https?:/i.test(url)) return route.continue();
-    if (!S.inScope(url)) {
+    // Inline resources are local to the page; other non-HTTP schemes are not part of a website audit.
+    if (!/^https?:/i.test(url)) {
+      if (/^(data|blob):/i.test(url)) return route.continue();
+      emit({ type: 'blocked', layer: 'browser', target: url, reason: 'Non-HTTP browser request blocked' });
+      return route.abort('aborted');
+    }
+    // Off-site requests and non-default ports are blocked (the proxy enforces this too).
+    if (!isDefaultHttpUrl(url) || !S.inScope(url)) {
       emit({ type: 'blocked', layer: 'browser', target: url, reason: 'Request outside the site under test' });
       return route.abort('aborted');
     }
@@ -87,7 +99,7 @@ function attachErrorListeners(page) {
 
 async function setup(init) {
   const hosts = new Set((init.scope?.hosts ?? []).map((h) => h.toLowerCase()));
-  S.inScope = (url) => hosts.has(hostOf(url));
+  S.inScope = (url) => isDefaultHttpUrl(url) && hosts.has(hostOf(url));
   S.mode = init.mode === 'staging' ? 'staging' : 'safe';
   S.limits = init.limits;
   S.deadline = init.deadline ?? (Date.now() + 600000);
@@ -103,14 +115,47 @@ async function setup(init) {
 }
 
 async function safeGet(url) {
+  let response = null;
   try {
-    const res = await S.context.request.get(url, { timeout: 8000, maxRedirects: 3 });
-    const ok = res.ok();
-    return { ok, body: ok ? (await res.text()).slice(0, 500000) : '' };
-  } catch { return { ok: false, body: '' }; }
+    const result = await scopedRequest('GET', url, 3);
+    response = result.response;
+    const ok = !result.blocked && response?.ok();
+    const body = ok ? (await response.text()).slice(0, 500000) : '';
+    await response?.dispose().catch(() => {});
+    return { ok, body };
+  } catch {
+    await response?.dispose().catch(() => {});
+    return { ok: false, body: '' };
+  }
+}
+
+// APIRequestContext calls do not pass through context.route. Check every URL and redirect
+// explicitly so robots, sitemap, and link checks cannot leave the normalized site scope.
+async function scopedRequest(method, startUrl, redirectLimit) {
+  let current = startUrl;
+  for (let hop = 0; hop <= redirectLimit; hop += 1) {
+    if (!S.inScope(current)) {
+      emit({ type: 'blocked', layer: 'network', target: current, reason: 'Request outside the site under test' });
+      return { response: null, blocked: true };
+    }
+    const response = await S.context.request.fetch(current, { method, timeout: 8000, maxRedirects: 0 });
+    if (![301, 302, 303, 307, 308].includes(response.status())) return { response, blocked: false };
+    const location = response.headers()['location'];
+    if (!location) return { response, blocked: false };
+    const next = normalizeLink(location, current);
+    if (!next || !S.inScope(next)) {
+      emit({ type: 'blocked', layer: 'network', target: next || location, reason: 'Redirect outside the site under test' });
+      await response.dispose().catch(() => {});
+      return { response: null, blocked: true };
+    }
+    await response.dispose().catch(() => {});
+    current = next;
+  }
+  return { response: null, blocked: true };
 }
 
 async function cmdDiscover(startUrl) {
+  if (!S.inScope(startUrl)) throw new Error('Discovery URL is outside the site under test');
   emit({ type: 'progress', message: `Opening ${startUrl}`, url: startUrl });
   const response = await S.page.goto(startUrl, { waitUntil: 'load' });
   const finalUrl = S.page.url();
@@ -145,6 +190,7 @@ async function cmdDiscover(startUrl) {
 }
 
 async function cmdOpen(url) {
+  if (!S.inScope(url)) throw new Error('Navigation URL is outside the site under test');
   const res = await S.page.goto(url, { waitUntil: 'load' }).catch((e) => { S.errors.push(`nav: ${String(e.message).split('\n')[0]}`); return null; });
   await S.page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
   return { url: S.page.url(), status: res?.status() ?? 0, newErrors: takeNewErrors() };
@@ -185,6 +231,7 @@ async function cmdAct(action) {
   const loc = (n) => S.page.locator(`[data-shipcheck-n="${n}"]`).first();
   try {
     if (action.action === 'goto') {
+      if (!S.inScope(action.url)) throw new Error('Navigation URL is outside the site under test');
       await S.page.goto(action.url, { waitUntil: 'load' });
     } else if (action.action === 'click') {
       await loc(action.n).click({ timeout: S.limits.actionTimeoutMs });
@@ -205,8 +252,10 @@ async function cmdAct(action) {
 
 // Full deterministic check set for ONE page (the api de-duplicates by URL).
 async function cmdAudit(url) {
+  if (url && !S.inScope(url)) throw new Error('Audit URL is outside the site under test');
   if (url && S.page.url() !== url) await cmdOpen(url);
   const pageUrl = S.page.url();
+  if (!S.inScope(pageUrl)) throw new Error('Current page is outside the site under test');
   const findings = [];
   const add = (checkId, evidence = {}) => findings.push({ checkId, target: pageUrl, evidence });
   const errBefore = S.errors.length;
@@ -296,9 +345,15 @@ async function cmdAudit(url) {
 
 async function checkLink(href) {
   try {
-    let res = await S.context.request.head(href, { timeout: 8000, maxRedirects: 5 });
-    if (res.status() === 405 || res.status() === 501) res = await S.context.request.get(href, { timeout: 8000, maxRedirects: 5 });
-    return res.status();
+    let { response: res, blocked } = await scopedRequest('HEAD', href, 5);
+    if (blocked) return res?.status() ?? 302;
+    if (res.status() === 405 || res.status() === 501) {
+      await res.dispose().catch(() => {});
+      ({ response: res, blocked } = await scopedRequest('GET', href, 5));
+    }
+    const status = blocked ? (res?.status() ?? 302) : res.status();
+    await res?.dispose().catch(() => {});
+    return status;
   } catch { return 0; }
 }
 async function checkLinks(links) {

@@ -21,7 +21,11 @@ export default function HowItWorks() {
   return (
     <main className="mx-auto max-w-5xl px-4 py-10">
       <h1 className="text-3xl font-bold">How ShipCheck works</h1>
-      <img src="/architecture.png" alt="ShipCheck architecture diagram" className="mt-6 w-full rounded border" />
+      {/* The diagram is unreadable at phone width, so it opens full size when tapped. */}
+      <a href="/architecture.png" target="_blank" rel="noreferrer" className="mt-6 block" aria-label="Open the architecture diagram full size">
+        <img src="/architecture.png" alt="ShipCheck architecture diagram" className="w-full rounded border" />
+        <span className="mt-2 block text-sm text-gray-500 sm:hidden">Tap the diagram to open it full size</span>
+      </a>
       <h2 className="mt-10 text-2xl font-bold">The agent loop</h2>
       <ol className="mt-4 space-y-3">{STEPS.map(([t, d], i) => <li key={t}><strong>{i + 1}. {t}:</strong> {d}</li>)}</ol>
       <h2 className="mt-10 text-2xl font-bold">Six safety layers</h2>

@@ -63,21 +63,32 @@ report builder now merges both layers and takes the larger count per host, so th
 finding reflects what happened. The network layer's own count still shows only the
 proxy's, so nothing is double counted.
 
+## The AI half, proven on 6 Nov
+
+A Vultr inference key was added and the audit was run again, through the web UI (the
+KAN-32 run). With `glm-5.3` configured, an audit of `https://example.com/` produced:
+
+- `ai: { model: "glm-5.3", available: true }`
+- 5 journeys planned by the AI, each with its own goal
+- 6 `agent_step` events in the stream, each showing ALLOWED or BLOCKED with the
+  element it acted on
+- 4 journeys that could not be completed, each becoming a `journey.failed` finding
+- 13 of the 14 findings carrying an AI-written why and fix
+- one `blocked` event
+
+So the whole pipeline is now proven with AI on and with AI off.
+
 ## Still open
 
-Both of these need something this machine does not have; neither is a code problem.
+One thing, and it is not a code problem.
 
-1. **The AI half of the run.** `LLM_API_KEY` is empty in `apps/api/.env.development`,
-   so planning, the explorer loop and the written summary all took the fail-soft path.
-   What is therefore still unproven end to end: `AI planned N journeys`, the
-   `agent_step` events, a `journey.failed` finding, and an AI-written why/fix. Paste a
-   Vultr inference key into that file, confirm the model with
-   `node --env-file=.env.development scripts/llm-smoke.js` (see
-   [kan-21-ai-model.md](kan-21-ai-model.md)), and run the audit again.
-2. **The demo site's deliberate traps.** Step 5.8 expects the broken *Start free
-   trial* journey from our own demo site, which needs it deployed on the VM (Dev3).
-   A local file-served copy cannot be used: the input guard rejects `localhost` and
-   bare IPs, and the sandbox has no route to the host.
+**The demo site's deliberate traps.** Step 5.8 expects the broken *Start free trial*
+journey from our own demo site. That trap is a JavaScript button, so only the explorer
+can find it by clicking — and it needs the demo site deployed on the VM (Dev3). A
+local file-served copy cannot stand in: the input guard rejects `localhost` and bare
+IPs, and the sandbox has no route to the host. A Cloudflare quick tunnel would also
+work, because the guard accepts a `*.trycloudflare.com` host and keeps the proxy
+allowlist narrow to it.
 
 ## Commands to repeat it
 

@@ -30,10 +30,17 @@ an environment that forgets to name a provider cannot quietly use something else
 Another OpenAI-compatible endpoint can still be selected locally with `LLM_PROVIDER` and
 `LLM_BASE_URL` — that is for debugging without burning credits, not for the demo.
 
-**`glm-5.3`** is the chat model. Dev4 ran `scripts/llm-smoke.js` against a Vultr key with
-it and it listed, answered in JSON in both modes, and returned one clean Core action
-object. That last part is what matters: the explorer asks for exactly one action per turn
-and anything that chats around the JSON, or that invents its own keys, breaks the loop.
+**`glm-5.3`** is the chat model. `scripts/llm-smoke.js` was run against a Vultr inference
+key twice: by Dev4 when the model was chosen, and again on 6 Nov against these committed
+settings. Both times the model listed, answered in JSON with `json_mode` both on and off,
+and returned one clean Core action — `{"action":"click","n":2,"reason":"..."}`, the right
+element number and no invented keys. That last part is what matters: the explorer asks for
+exactly one action per turn, and anything that chats around the JSON, or that adds its own
+keys, is rejected by the guard and wastes a step.
+
+The account's catalogue at that point held 35 models. `glm-5.2`, `glm-5.3` and
+`glm-5.3-flash` were all offered; the rest were embedding, reranker, speech, image and
+video models, which the explorer cannot use.
 
 **`LLM_JSON_MODE=true`**, because the `json_mode=true` run returned valid JSON. We keep
 response_format on where the model supports it; `apps/api/src/llm/json.js` still extracts

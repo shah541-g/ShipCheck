@@ -1,5 +1,14 @@
 {$APP_HOST} {
-	respond "ShipCheck is being built. Come back soon." 200
+	handle /api/* {
+		reverse_proxy api:4000 {
+			# Do not buffer: Server-Sent Events must reach the browser immediately.
+			flush_interval -1
+		}
+	}
+	handle {
+		encode zstd gzip
+		reverse_proxy web:3000
+	}
 }
 
 {$DEMO_HOST} {

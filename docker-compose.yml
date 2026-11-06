@@ -15,7 +15,53 @@ services:
       - ./demo-site:/srv/demo-site:ro
       - caddy_data:/data
       - caddy_config:/config
+    networks: [public]
+    depends_on: [web, api]
+
+  web:
+    build:
+      context: ./apps/web
+      args:
+        NEXT_PUBLIC_API_BASE: ""
+    restart: unless-stopped
+    networks: [public]
+
+  api:
+    build: ./apps/api
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATA_DIR: /data
+    volumes:
+      # Trusted orchestrator only. Sandbox containers never get this socket.
+      - /var/run/docker.sock:/var/run/docker.sock
+      - api_data:/data
+    networks: [public]
+    depends_on: [egress-proxy]
+
+  egress-proxy:
+    build: ./apps/egress-proxy
+    restart: unless-stopped
+    environment:
+      INTERNAL_TOKEN: ${INTERNAL_TOKEN}
+      API_INTERNAL_URL: http://api:4000
+    networks:
+      public: {}
+      sandbox:
+        # Fixed IP: under gVisor (runsc) a sandbox cannot use Docker's internal DNS,
+        # so SANDBOX_PROXY_URL points at this IP instead of the name "egress-proxy".
+        ipv4_address: 172.30.0.10
+
+networks:
+  public: {}
+  sandbox:
+    name: shipcheck-sandbox
+    internal: true
+    ipam:
+      config:
+        - subnet: 172.30.0.0/24
 
 volumes:
   caddy_data: {}
   caddy_config: {}
+  api_data: {}

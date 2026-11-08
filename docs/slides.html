@@ -1,0 +1,321 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>ShipCheck — slides</title>
+<style>
+  /* Standard 16:9 deck, 1280x720. Each .slide is one printed page, so Ctrl+P with
+     "Save as PDF" produces the submission deck with no other tool involved. */
+  @page { size: 1280px 720px; margin: 0; }
+
+  :root {
+    --bg: #0b1020;
+    --panel: #141a2e;
+    --line: #273153;
+    --ink: #eef2ff;
+    --dim: #9aa6cc;
+    --accent: #6ea8fe;
+    --danger: #ff6b6b;
+    --ok: #4ade80;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: #05070f; }
+  body {
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    color: var(--ink);
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .slide {
+    position: relative;
+    width: 1280px;
+    height: 720px;
+    padding: 64px 72px;
+    background: var(--bg);
+    background-image: radial-gradient(900px 420px at 88% -12%, #1b2748 0%, transparent 60%);
+    overflow: hidden;
+    page-break-after: always;
+    break-after: page;
+    display: flex;
+    flex-direction: column;
+  }
+  .slide:last-child { page-break-after: auto; break-after: auto; }
+
+  /* On screen the slides sit in a column with a gap; printing removes it. */
+  @media screen {
+    body { padding: 28px 0; }
+    .slide { margin: 0 auto 28px; border-radius: 14px; box-shadow: 0 10px 40px #0008; }
+  }
+
+  h1 { font-size: 68px; line-height: 1.05; margin: 0 0 18px; letter-spacing: -1.5px; }
+  h2 { font-size: 46px; line-height: 1.1;  margin: 0 0 28px; letter-spacing: -1px; }
+  p  { font-size: 23px; line-height: 1.5; margin: 0 0 16px; color: var(--ink); }
+  .lead { font-size: 29px; color: var(--dim); }
+  .dim  { color: var(--dim); }
+  .accent { color: var(--accent); }
+  .mono { font-family: "Cascadia Mono", Consolas, monospace; }
+
+  ul { margin: 0 0 18px; padding-left: 26px; }
+  li { font-size: 23px; line-height: 1.55; margin-bottom: 10px; }
+
+  .kicker {
+    font-size: 15px; letter-spacing: 2.4px; text-transform: uppercase;
+    color: var(--accent); margin-bottom: 20px; font-weight: 600;
+  }
+  .foot {
+    position: absolute; left: 72px; right: 72px; bottom: 30px;
+    font-size: 15px; color: var(--dim);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 34px; }
+  .cols3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; }
+
+  .card {
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 12px; padding: 20px 22px;
+  }
+  .card h3 { margin: 0 0 8px; font-size: 22px; }
+  .card p  { margin: 0; font-size: 19px; line-height: 1.45; color: var(--dim); }
+
+  table { width: 100%; border-collapse: collapse; }
+  td, th { text-align: left; padding: 11px 14px; font-size: 20px; vertical-align: top; }
+  tbody tr { border-top: 1px solid var(--line); }
+  th { font-size: 15px; letter-spacing: 1.4px; text-transform: uppercase; color: var(--dim); }
+  td:first-child { white-space: nowrap; font-weight: 600; width: 250px; }
+
+  .pipeline { display: flex; align-items: stretch; gap: 10px; margin: 6px 0 26px; }
+  .step {
+    flex: 1; background: var(--panel); border: 1px solid var(--line);
+    border-radius: 10px; padding: 14px 12px; text-align: center;
+  }
+  .step b { display: block; font-size: 19px; margin-bottom: 4px; }
+  .step span { font-size: 14px; color: var(--dim); line-height: 1.35; display: block; }
+
+  .stats { display: flex; gap: 14px; margin-top: auto; }
+  .stat {
+    flex: 1; background: var(--panel); border: 1px solid var(--line);
+    border-radius: 12px; padding: 16px 18px;
+  }
+  .stat b { display: block; font-size: 34px; line-height: 1.1; }
+  .stat span { font-size: 15px; color: var(--dim); }
+
+  .shot {
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 12px; padding: 18px 20px; font-size: 19px;
+  }
+  .row { display: flex; align-items: center; gap: 12px; padding: 7px 0; }
+  .row + .row { border-top: 1px solid var(--line); }
+  .chip {
+    font-size: 13px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
+    border-radius: 6px; padding: 4px 9px; white-space: nowrap;
+  }
+  .chip.high { background: #3a1620; color: #ffb4b4; border: 1px solid #6c2733; }
+  .chip.block { background: #3a1620; color: var(--danger); border: 1px solid #6c2733; }
+  .chip.ok { background: #10301f; color: var(--ok); border: 1px solid #1f5c3a; }
+
+  img.fig {
+    width: 100%; border: 1px solid var(--line); border-radius: 12px; background: #fff;
+    /* Capped so a tall diagram cannot grow into the footer line. */
+    max-height: 452px; object-fit: contain;
+  }
+
+  /* The four Vultr services sit in one column beside the diagram, so their cards are
+     tighter than the ones elsewhere — four default cards overflow the slide. */
+  .vultr .card { padding: 12px 16px; margin-bottom: 7px; }
+  .vultr .card:last-child { margin-bottom: 0; }
+  .vultr .card h3 { font-size: 20px; margin-bottom: 3px; }
+  .vultr .card p  { font-size: 17px; line-height: 1.32; }
+</style>
+</head>
+<body>
+
+<!-- 1. Title -->
+<section class="slide" style="justify-content:center">
+  <div class="kicker">Vultr Agent Rush Hackathon · Challenge 1: Blast Radius Zero</div>
+  <h1>ShipCheck</h1>
+  <p class="lead" style="max-width:900px">The pre-launch website tester that can't be hijacked.</p>
+  <p class="lead" style="max-width:900px">A sandboxed AI agent that clicks through your site before your users do.</p>
+  <div class="foot"><span class="mono">app.149.28.205.32.sslip.io</span><span class="mono">github.com/shah541-g/ShipCheck</span></div>
+</section>
+
+<!-- 2. The problem -->
+<section class="slide">
+  <div class="kicker">The problem</div>
+  <h2>Give an AI agent a browser and it becomes<br>the most dangerous user you have</h2>
+  <div class="cols">
+    <div>
+      <ul>
+        <li>It reads the page — and a page can tell it what to do</li>
+        <li>One hidden line of text can send it to an attacker's server</li>
+        <li>It can click <b>Delete</b>, <b>Pay</b> or <b>Submit</b> — and mean it</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>And the launches still break</h3>
+      <p>Sites ship with dead buttons, broken signup flows and missing metadata, because
+      nobody clicked through every journey by hand.</p>
+      <p style="margin-top:14px">Teams want an agent to do that testing. Few are willing
+      to let one loose on a real site.</p>
+    </div>
+  </div>
+  <p class="lead" style="margin-top:auto">So the agent has to be useful <i>and</i> caged.</p>
+  <div class="foot"><span>ShipCheck</span><span>2</span></div>
+</section>
+
+<!-- 3. How it works -->
+<section class="slide">
+  <div class="kicker">How it works</div>
+  <h2>An agent that tests a website,<br>and a cage it cannot get out of</h2>
+  <div class="pipeline">
+    <div class="step"><b>Discover</b><span>Find the pages</span></div>
+    <div class="step"><b>Plan</b><span>Write real user journeys</span></div>
+    <div class="step"><b>Explore</b><span>Drive a browser, one approved action at a time</span></div>
+    <div class="step"><b>Analyze</b><span>Explain every problem, suggest a fix</span></div>
+    <div class="step"><b>Prove It</b><span>Re-run in a clean sandbox</span></div>
+    <div class="step"><b>Report</b><span>Score, evidence, fixes</span></div>
+  </div>
+  <div class="cols">
+    <div class="card">
+      <h3>Six action types. Nothing else exists.</h3>
+      <p><span class="mono">goto · click · type · select · login · done</span> — anything
+      outside that list cannot be expressed, let alone performed.</p>
+    </div>
+    <div class="card">
+      <h3>Approved by code, not by the model</h3>
+      <p>Every action is checked before it runs: the element must exist on the page, the
+      target must stay on the site, and it is never a Delete or Pay button.</p>
+    </div>
+  </div>
+  <div class="foot"><span>ShipCheck</span><span>3</span></div>
+</section>
+
+<!-- 4. What it finds -->
+<section class="slide">
+  <div class="kicker">Results · audit of our demo site</div>
+  <h2>It finds what a linter can't</h2>
+  <div class="cols">
+    <div>
+      <p><b>A broken journey.</b> The agent clicked <i>Start free trial</i> and reached a dead
+      end. It is a JavaScript button with no link to follow — a crawler never sees it.</p>
+      <p><b>A prompt injection, reported instead of obeyed.</b> The page carried text hidden
+      from human visitors, telling AI agents to export the customer list.</p>
+      <p><b>And it checks itself.</b> Every finding is re-run in a second clean sandbox. Only
+      what reproduces is marked <span class="accent">Verified</span>.</p>
+    </div>
+    <div class="shot">
+      <div class="row"><span class="chip high">High</span><span>Text that tries to control AI agents</span></div>
+      <div class="row"><span class="chip high">High</span><span>User journey could not be completed</span></div>
+      <div class="row"><span class="chip high">High</span><span>Broken internal link — <span class="mono">404</span></span></div>
+      <div class="row"><span class="chip ok">Verified</span><span class="dim">Reproduced in a clean sandbox</span></div>
+      <div class="row"><span class="chip block">Blocked</span><span class="mono">attacker.example/collect</span></div>
+      <div class="row"><span class="chip block">Blocked</span><span class="mono">attacker.example/pixel.gif</span></div>
+    </div>
+  </div>
+  <div class="stats">
+    <div class="stat"><b>34</b><span>findings on the demo site</span></div>
+    <div class="stat"><b>2 of 5</b><span>journeys failed, with screenshots</span></div>
+    <div class="stat"><b>26</b><span>findings on getbootstrap.com, 10 pages</span></div>
+    <div class="stat"><b>0 / F</b><span>score the demo site earned</span></div>
+  </div>
+  <div class="foot"><span>ShipCheck</span><span>4</span></div>
+</section>
+
+<!-- 5. Containment -->
+<section class="slide">
+  <div class="kicker">Containment</div>
+  <h2>Blast radius: zero</h2>
+  <table>
+    <thead><tr><th>Layer</th><th>What it stops</th></tr></thead>
+    <tbody>
+      <tr><td>L1 Input guard</td><td>No localhost, private IPs, odd ports or credentials in URLs</td></tr>
+      <tr><td>L2 Action guard</td><td>Six action types; the element must exist, stay in scope, and never be a Delete or Pay button</td></tr>
+      <tr><td>L3 Browser guard</td><td>No navigation off the site, no writes leave the sandbox, no service workers</td></tr>
+      <tr><td>L4 Network guard</td><td>No direct internet — an egress proxy with a per-job allowlist</td></tr>
+      <tr><td>L5 Secret guard</td><td>Zero secrets inside the sandbox. The AI key never enters it</td></tr>
+      <tr><td>L6 Resource guard</td><td>Fresh gVisor container per stage — read-only, 1 CPU, 1 GB, destroyed after</td></tr>
+    </tbody>
+  </table>
+  <div class="stats">
+    <div class="stat"><b class="mono">runsc</b><span>gVisor runtime, printed by every report</span></div>
+    <div class="stat"><b>0</b><span>secrets inside the sandbox</span></div>
+    <div class="stat"><b>214</b><span>off-site requests blocked on one real site</span></div>
+    <div class="stat"><b>3</b><span>containers per audit, each destroyed</span></div>
+  </div>
+  <div class="foot"><span>ShipCheck</span><span>5</span></div>
+</section>
+
+<!-- 6. Architecture -->
+<section class="slide">
+  <div class="kicker">Architecture</div>
+  <h2>Built on Vultr</h2>
+  <div class="cols" style="grid-template-columns: 1.35fr 1fr; align-items:start">
+    <img class="fig" src="architecture.png" alt="ShipCheck architecture">
+    <div class="vultr">
+      <div class="card">
+        <h3>Cloud Compute</h3><p>The VM running Caddy, the web app, the orchestrator and the egress proxy.</p>
+      </div>
+      <div class="card">
+        <h3>Serverless Inference</h3><p>Every AI call, on <span class="mono">glm-5.3</span>. The key never leaves the orchestrator.</p>
+      </div>
+      <div class="card">
+        <h3>Object Storage</h3><p>Audit and journey screenshots, served to the report page.</p>
+      </div>
+      <div class="card">
+        <h3>Firewall</h3><p>Only 80 and 443 are open. SSH is restricted to one address.</p>
+      </div>
+    </div>
+  </div>
+  <div class="foot"><span>The orchestrator never runs page content. The sandbox never holds a secret.</span><span>6</span></div>
+</section>
+
+<!-- 7. Who needs this -->
+<section class="slide">
+  <div class="kicker">Who needs this</div>
+  <h2>A report instead of a promise</h2>
+  <div class="cols3">
+    <div class="card"><h3>Agencies</h3><p>Hand the client evidence at every launch — the same checks, clicked through, with screenshots.</p></div>
+    <div class="card"><h3>Founders</h3><p>Find the dead signup button before the ad spend does.</p></div>
+    <div class="card"><h3>QA &amp; SEO teams</h3><p>Journeys clicked and pages audited together, instead of two tools and a spreadsheet.</p></div>
+  </div>
+  <div class="card" style="margin-top:26px">
+    <h3>And anyone evaluating browser agents</h3>
+    <p>The containment model is plain code you can read, test and copy — guards, not a prompt.
+    Every report states the runtime it ran under and how many secrets were inside: nothing is
+    taken on trust.</p>
+  </div>
+  <div class="foot"><span>ShipCheck</span><span>7</span></div>
+</section>
+
+<!-- 8. What's next -->
+<section class="slide">
+  <div class="kicker">What's next</div>
+  <h2>Roadmap</h2>
+  <div class="cols">
+    <div>
+      <ul>
+        <li><b>Staging mode</b> — approved form submissions and logins, behind an explicit human OK</li>
+        <li><b>Scheduled audits</b> — run on every deploy, report only what changed</li>
+        <li><b>CI check</b> — fail the build when a journey breaks</li>
+        <li><b>Multi-region</b> — audit from the regions your users are in</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Try it</h3>
+      <p class="mono" style="font-size:20px;line-height:1.9;color:var(--ink)">
+        app.149.28.205.32.sslip.io<br>
+        github.com/shah541-g/ShipCheck<br>
+        <span class="dim">video: add the YouTube link</span>
+      </p>
+      <p style="margin-top:16px">Press <b>Try the demo site</b> and watch the agent
+      get told to exfiltrate data — and refuse.</p>
+    </div>
+  </div>
+  <p class="lead" style="margin-top:auto">ShipCheck — launch with confidence, with an agent you can trust.</p>
+  <div class="foot"><span>MIT licensed</span><span>8</span></div>
+</section>
+
+</body>
+</html>

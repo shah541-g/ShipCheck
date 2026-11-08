@@ -10,7 +10,7 @@ Two audits are run before recording, so nothing is waiting on camera:
 
 | Audit | Used for | Link |
 |---|---|---|
-| Demo site (`demo.149.28.205.32.sslip.io`) | The traps, the blocked requests, the failed journey | *(fill in after the deploy)* |
+| Demo site (`demo.149.28.205.32.sslip.io`) | The traps, the blocked requests, the failed journey | https://app.149.28.205.32.sslip.io/jobs/0e1bb009-b818-47db-9131-54e3d8806e17 |
 | `getbootstrap.com` | Proof it works on a real site | https://app.149.28.205.32.sslip.io/jobs/a578146f-e054-4b74-bb24-fc7910e9aca0 |
 
 Open both reports in tabs beforehand. The only thing recorded live is the start of the
@@ -66,6 +66,12 @@ lines visible. Hold on this for a full three seconds.
 >
 > The same page also tries to post your cookies to that host. Blocked — before the request
 > left the browser. The sandbox has no route to the internet at all.
+
+*Optional extra beat if the timing allows — it is a strong one. Show the finding
+"AI-agent instruction text is visible to human visitors" in the AI observations:*
+
+> And it went further than the rule asked. The AI read that hidden text and filed it as a
+> problem of its own, instead of doing what it said.
 
 ---
 

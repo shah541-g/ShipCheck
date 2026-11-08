@@ -18,6 +18,9 @@ audit. Whichever way you go, do not reword it.
 `docs/slides.html` is a complete 8-slide deck. It is one file, it needs no internet, and
 it prints to a PDF at the standard widescreen size.
 
+The architecture diagram is stored inside the file itself, so you can email it, drop it in
+a Teams chat or put it on OneDrive and it still renders. Nothing has to travel with it.
+
 1. Open the repo folder on your computer and **double-click `docs/slides.html`**.
    It opens in your browser. Scroll down — you should see 8 dark slides.
 2. Press **Ctrl + P** (Cmd + P on a Mac).

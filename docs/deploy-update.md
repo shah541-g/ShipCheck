@@ -11,6 +11,11 @@ This update (8 Nov 2026) contains two changes:
 2. **More time for the explore stage.** `EXPLORE_TIMEOUT_MS` goes from 7 to 10 minutes,
    so slow sites get more of their planned pages audited instead of being skipped.
    *(This is one line in `.env`.)*
+3. **The demo site's two security traps are now real.** They had been left as TODO
+   comments, so an audit of the demo site produced no containment moment at all — and
+   Challenge 1 asks us to show one. The home page now carries a hidden
+   prompt-injection note and a script that tries to send data to `attacker.example`.
+   *(Plain files served by Caddy from a mount, so `git pull` is enough — no rebuild.)*
 
 Total time: about 5 minutes.
 
@@ -127,6 +132,18 @@ If both look right, the update is done.
 
 > If you would rather not audit that site, any slow site works. The point is simply
 > that no healthy page should be reported as a broken link any more.
+
+### Then check the demo site's traps
+
+Open the app and press **Try the demo site**. The finished report must show all three:
+
+| What | Where to look |
+|---|---|
+| Red **BLOCKED** lines naming `attacker.example` | Agent view and the Containment panel |
+| A high finding **"Text that tries to control AI agents"** | Findings list |
+| The failed **pricing** journey | User journeys |
+
+That first row is the containment moment the video needs, so do not skip this check.
 
 ---
 

@@ -4,9 +4,9 @@ ShipCheck is a website auditor being built for the Vultr Agent Rush hackathon. I
 
 ## Project status
 
-ShipCheck runs end to end: a POST to `/api/jobs` discovers the site in a fresh sandbox, plans, explores, measures, re-checks its own findings in a second clean sandbox and produces a report with a score, evidence and downloads. Real audits have been run locally — the record is in [docs/kan-17-first-local-run.md](docs/kan-17-first-local-run.md), including what is still unproven.
+ShipCheck runs end to end: a POST to `/api/jobs` discovers the site in a fresh sandbox, plans, explores, measures, re-checks its own findings in a second clean sandbox and produces a report with a score, evidence and downloads. Real audits have been run locally — the record is in [docs/kan-17-first-local-run.md](docs/kan-17-first-local-run.md) — and on the production Vultr VM, where it is live at `https://app.149.28.205.32.sslip.io`.
 
-Two parts are deliberately not finished yet: the AI half of a run has only been exercised against a provider smoke test rather than inside a full audit, and the six containment layers have not been proven together on the production VM, which is what `apps/api/scripts/containment-check.js` is for. Driver protocol tests do not by themselves prove real Chromium or gVisor containment.
+On production, audits of the demo site complete with AI-planned journeys from `glm-5.3` on Vultr Serverless Inference, every sandbox runs under gVisor (`runsc`), screenshots are served from Vultr Object Storage, and `apps/api/scripts/containment-check.js` passes all seven network checks (see [Containment proof](#containment-proof)). One thing is still unproven: the demo site does not yet contain its planted exfiltration and write-request traps, so the network and safe-mode write blocks have not yet fired during a full audit.
 
 Implemented AI building blocks:
 
@@ -48,11 +48,17 @@ The complete design uses six layers. This table distinguishes the code currently
 | L1: Input validation | Accept only supported public HTTP(S) targets; reject unsafe hosts, schemes, credentials, and out-of-scope URLs. | Implemented in `apps/api/src/security/policy.js`; unit tests cover the policy. |
 | L2: Action restrictions | Validate each AI action, element reference, typeable flag, URL scope, and dangerous click; cap actions and repeated loops. | Guard and explorer limits are implemented in `apps/api/src/security/actionGuard.js` and `apps/api/src/agent/explorer.js`. The guard holds all six action shapes from the contract; the Core explorer only ever proposes four, and `select`/`login` stay stretch work. |
 | L3: Browser protection | Abort off-site navigation and unsafe writes; dismiss dialogs and disable service workers. | Implemented in `sandbox/runner.js`, including per-request URL-scope checks and redirect checks. |
-| L4: Network restrictions | Put the sandbox on an internal-only Docker network and require its traffic to pass through a per-job allowlist egress proxy. | The egress proxy is in `apps/egress-proxy` with a per-job allowlist, and the driver refuses to start on a Docker network that is not internal. Isolation on the production network is proven by `apps/api/scripts/containment-check.js`, which has not been run on the VM yet. |
+| L4: Network restrictions | Put the sandbox on an internal-only Docker network and require its traffic to pass through a per-job allowlist egress proxy. | The egress proxy is in `apps/egress-proxy` with a per-job allowlist, and the driver refuses to start on a Docker network that is not internal. Isolation on the production network is proven by `apps/api/scripts/containment-check.js`, which passes all seven checks on the VM. |
 | L5: Secret protection | Keep inference and storage credentials in the API; do not pass API secrets, mounts, or the Docker socket into a sandbox. | The API driver launches without environment injection, mounts, or a Docker socket and stops if the runner reports secret-like environment variables. The runner counts its own secret-like variables and every report carries that count. |
-| L6: Resource limits | Run each stage in a disposable gVisor sandbox with CPU, memory, process, time, and filesystem limits. | The API driver applies the Docker resource limits and uses `runsc` when `SANDBOX_RUNTIME=runsc`. gVisor is installed on the production VM; the runtime in use is reported with every audit. |
+| L6: Resource limits | Run each stage in a disposable gVisor sandbox with CPU, memory, process, time, and filesystem limits. | The API driver applies the Docker resource limits and uses `runsc` when `SANDBOX_RUNTIME=runsc`. On the production VM every sandbox runs under `runsc` with 1 CPU, 1 GB memory, a 1024-process limit, a read-only root and all capabilities dropped; the runtime in use is reported with every audit. |
 
-Until the six layers have been exercised together on the production VM, this project must not be represented as a proven isolated-browser audit service. Unit tests for the AI agent do not prove sandbox containment.
+### Containment proof
+
+On the production VM, `docker compose exec api node scripts/containment-check.js` starts a throwaway container on the sandbox network and tries to get out:
+
+![containment-check.js on the production VM: 7 × PASS](docs/containment-check.png)
+
+The production security checklist (Document 3, step 9.2) also holds: only Caddy publishes ports (80 and 443), the Vultr Firewall limits SSH to the admin IP, `/internal/events` is not reachable from outside (404), a sandbox started by a demo audit carries no secrets (`Secrets inside sandbox: 0`) and runs under `runsc`, the job rate limit answers `429` after five requests an hour, and the VM's `.env` is `chmod 600`. Unit tests for the AI agent do not by themselves prove sandbox containment; these checks on the VM do.
 
 ## Architecture
 
@@ -60,7 +66,7 @@ This is the intended Core topology from Document 2. The six-layer table above di
 
 ![ShipCheck architecture: Caddy, web, API, sandbox, egress proxy, Vultr Inference and Object Storage](docs/architecture.png)
 
-Every box in the diagram exists in this checkout. What has not been exercised yet is the production deployment of it: the VM, gVisor as the sandbox runtime and Object Storage for screenshots.
+Every box in the diagram exists in this checkout and runs on the production Vultr VM: Caddy, web, api and egress proxy under Docker Compose, gVisor as the sandbox runtime, and Object Storage for screenshots.
 
 ## AI providers
 
@@ -74,12 +80,12 @@ Use a Vultr inference key with a model your account can see. The smoke test list
 
 | Vultr service | Intended use | Current implementation state |
 |---|---|---|
-| Cloud Compute | Host the web app, API, egress proxy, and isolated browser containers. | Deployment target in the architecture; no complete deployment is configured here. |
+| Cloud Compute | Host the web app, API, egress proxy, and isolated browser containers. | Deployed: one Ubuntu VM runs Caddy, web, api and the egress proxy with `docker compose`, and starts a fresh gVisor sandbox per audit stage. |
 | Serverless Inference | Planning, action selection, analysis, and summaries through the OpenAI-compatible client. | Both environment examples select Vultr with `glm-5.3`; model listing and the live smoke checks passed against a Vultr key. |
-| Object Storage | Store screenshots and report artifacts. | Implemented behind one `putScreenshot`; `STORAGE_DRIVER=s3` selects it and `local` writes to disk for development. Only the local driver has been run so far. |
-| Firewall | Restrict inbound access to administration and public web ports. | Required by the deployment design; production firewall settings are not verified in this checkout. |
+| Object Storage | Store screenshots and report artifacts. | Implemented behind one `putScreenshot`; `STORAGE_DRIVER=s3` selects it and `local` writes to disk for development. Production uses `s3`: audit screenshots are served from Vultr Object Storage. |
+| Firewall | Restrict inbound access to administration and public web ports. | Configured: SSH (22) only from the admin IP; 80 and 443 open for Caddy. |
 
-The intended deployment also uses a Vultr Firewall to restrict inbound access to administration and the public web ports. Safe mode does not submit forms. A human approval step is not needed for Core because there is no final write action to approve.
+The deployment uses a Vultr Firewall to restrict inbound access to administration and the public web ports. Safe mode does not submit forms. A human approval step is not needed for Core because there is no final write action to approve.
 
 ## Local development
 

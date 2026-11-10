@@ -321,7 +321,10 @@ async function cmdAudit(url) {
     const unique = new Map();
     for (const a of anchors) { const href = normalizeLink(a.href, pageUrl); if (href && S.inScope(href) && !unique.has(href)) unique.set(href, { href, text: a.text }); }
     const checked = await checkLinks([...unique.values()].slice(0, S.limits.maxLinksPerPage));
-    for (const l of checked) if (l.status === 0 || l.status >= 400) add('links.broken', { link: l.href, status: l.status, text: l.text });
+    // Status 0 means the check itself never completed (timeout, DNS, or the stage
+    // deadline cutting the queue short), which says nothing about the link. Reporting it
+    // turned slow-but-healthy pages into "dead links", so only a real 4xx/5xx counts.
+    for (const l of checked) if (l.status >= 400) add('links.broken', { link: l.href, status: l.status, text: l.text });
   } catch (err) {
     add('page.load_failed', { error: String(err?.message ?? err).split('\n')[0] });
   }
@@ -343,18 +346,24 @@ async function cmdAudit(url) {
   }
 }
 
+// Returns the link's HTTP status, or 0 when our own check could not complete. A throw
+// here is almost always our 8 s timeout against a slow site rather than a dead page, so
+// try once more before giving up, and keep 0 distinct from a real 4xx/5xx.
 async function checkLink(href) {
-  try {
-    let { response: res, blocked } = await scopedRequest('HEAD', href, 5);
-    if (blocked) return res?.status() ?? 302;
-    if (res.status() === 405 || res.status() === 501) {
-      await res.dispose().catch(() => {});
-      ({ response: res, blocked } = await scopedRequest('GET', href, 5));
-    }
-    const status = blocked ? (res?.status() ?? 302) : res.status();
-    await res?.dispose().catch(() => {});
-    return status;
-  } catch { return 0; }
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      let { response: res, blocked } = await scopedRequest('HEAD', href, 5);
+      if (blocked) return res?.status() ?? 302;
+      if (res.status() === 405 || res.status() === 501) {
+        await res.dispose().catch(() => {});
+        ({ response: res, blocked } = await scopedRequest('GET', href, 5));
+      }
+      const status = blocked ? (res?.status() ?? 302) : res.status();
+      await res?.dispose().catch(() => {});
+      return status;
+    } catch { /* one retry, then report it as unchecked */ }
+  }
+  return 0;
 }
 async function checkLinks(links) {
   const queue = [...links]; const results = [];

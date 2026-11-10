@@ -17,6 +17,13 @@ Implemented AI building blocks:
 - Analysis that adds AI explanations only to existing measured findings and keeps built-in guidance when AI fails.
 - LLM smoke script for checking the provider's model list, both JSON modes, and a valid Core action.
 
+## Demo and presentation
+
+- 🎥 [System demo video](docs/demo/shipcheck-system-demo.mp4): a walkthrough of ShipCheck auditing a website end to end.
+- 📊 [Presentation slides (PDF)](docs/demo/shipcheck-presentation.pdf): the hackathon pitch deck.
+
+The live deployment is at `https://app.149.28.205.32.sslip.io`.
+
 ## How the agent is intended to work
 
 ```text
@@ -103,5 +110,7 @@ The smoke test checks model listing, that `LLM_MODEL` is one of the models your 
 - [Architecture (Document 2)](planning/02-architecture.en.md)
 - [Build steps (Document 3)](planning/03-build-steps.en.md)
 - [Shared API and event contract](docs/CONTRACT.md)
+- [System demo video](docs/demo/shipcheck-system-demo.mp4)
+- [Presentation slides](docs/demo/shipcheck-presentation.pdf)
 
 The build steps define Core versus stretch scope and are the implementation source of truth. The shared contract describes the complete v2 shapes; features marked stretch are not part of Core.
